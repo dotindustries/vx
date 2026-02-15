@@ -30,7 +30,12 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	client, err := vault.NewClient(cfg.Vault.Address, cfg.Vault.BasePath)
+	addr := cfg.Vault.Address
+	if flagVaultAddr != "" {
+		addr = flagVaultAddr
+	}
+
+	client, err := vault.NewClient(addr, cfg.Vault.BasePath)
 	if err != nil {
 		return fmt.Errorf("creating vault client: %w", err)
 	}

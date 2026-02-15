@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+// oidcCallbackPort is the default port for the OIDC callback listener.
+// This must match one of the allowed_redirect_uris in Vault's OIDC config.
+// The standard port 8250 is the same used by the vault CLI.
+const oidcCallbackPort = 8250
+
 // oidcCallbackResult holds the outcome of a single OIDC callback invocation.
 type oidcCallbackResult struct {
 	code  string
@@ -21,14 +26,14 @@ type oidcCallbackResult struct {
 // browser for the user to authenticate, waits for the callback, and exchanges
 // the authorization code for a Vault token. The token is set on the client.
 func OIDCAuth(client *Client, role string) error {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listenAddr := fmt.Sprintf("localhost:%d", oidcCallbackPort)
+	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		return fmt.Errorf("starting OIDC callback listener: %w", err)
+		return fmt.Errorf("starting OIDC callback listener on %s (is another vault/vx process running?): %w", listenAddr, err)
 	}
 	defer listener.Close()
 
-	callbackPort := listener.Addr().(*net.TCPAddr).Port
-	redirectURI := fmt.Sprintf("http://localhost:%d/oidc/callback", callbackPort)
+	redirectURI := fmt.Sprintf("http://localhost:%d/oidc/callback", oidcCallbackPort)
 
 	authURL, clientNonce, err := requestAuthURL(client, role, redirectURI)
 	if err != nil {

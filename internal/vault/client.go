@@ -16,6 +16,7 @@ type Client struct {
 
 // NewClient creates a new Vault API client pointed at the given address.
 // The basePath is the KV v2 mount point (e.g. "secret").
+// The client starts unauthenticated — use SetToken or an auth method to set a token.
 func NewClient(address string, basePath string) (*Client, error) {
 	if address == "" {
 		return nil, fmt.Errorf("vault address is required")
@@ -28,6 +29,10 @@ func NewClient(address string, basePath string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("creating vault client: %w", err)
 	}
+
+	// Clear any token auto-loaded from ~/.vault-token or VAULT_TOKEN env var.
+	// We manage tokens explicitly via ~/.vx/token or auth methods.
+	inner.ClearToken()
 
 	return &Client{
 		inner:    inner,

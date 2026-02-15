@@ -18,6 +18,10 @@ var (
 	flagConfigDir string
 	flagNoDaemon  bool
 	flagVerbose   bool
+	flagAuth      string
+	flagVaultAddr string
+	flagRoleID    string
+	flagSecretID  string
 )
 
 var rootCmd = &cobra.Command{
@@ -41,6 +45,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&flagConfigDir, "config", "", "path to root vx.toml (auto-detected if omitted)")
 	rootCmd.PersistentFlags().BoolVar(&flagNoDaemon, "no-daemon", false, "skip token daemon; authenticate inline")
 	rootCmd.PersistentFlags().BoolVarP(&flagVerbose, "verbose", "v", false, "enable debug logging")
+	rootCmd.PersistentFlags().StringVar(&flagAuth, "auth", "", "authentication method (oidc, approle); overrides config")
+	rootCmd.PersistentFlags().StringVar(&flagVaultAddr, "vault-addr", "", "vault address; overrides config")
+	rootCmd.PersistentFlags().StringVar(&flagRoleID, "role-id", "", "AppRole role ID (for --auth approle)")
+	rootCmd.PersistentFlags().StringVar(&flagSecretID, "secret-id", "", "AppRole secret ID (for --auth approle)")
 
 	cobra.OnInitialize(initLogger)
 }

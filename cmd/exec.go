@@ -163,13 +163,18 @@ func mergeAllWorkspaces(cfg *config.RootConfig, rootDir string, env string) (*co
 
 // authenticatedClient creates a Vault client with a valid token.
 func authenticatedClient(cfg *config.RootConfig, env string) (*vault.Client, error) {
+	addr := cfg.Vault.Address
+	if flagVaultAddr != "" {
+		addr = flagVaultAddr
+	}
+
 	tok, err := token.ReadToken()
 	if err != nil {
 		log.Debug().Msg("no cached token, authenticating")
 		return authenticateNew(cfg)
 	}
 
-	client, err := vault.NewClientWithToken(cfg.Vault.Address, cfg.Vault.BasePath, tok)
+	client, err := vault.NewClientWithToken(addr, cfg.Vault.BasePath, tok)
 	if err != nil {
 		return nil, fmt.Errorf("creating vault client: %w", err)
 	}
@@ -185,24 +190,43 @@ func authenticatedClient(cfg *config.RootConfig, env string) (*vault.Client, err
 
 // authenticateNew performs a fresh authentication against Vault.
 func authenticateNew(cfg *config.RootConfig) (*vault.Client, error) {
-	client, err := vault.NewClient(cfg.Vault.Address, cfg.Vault.BasePath)
+	addr := cfg.Vault.Address
+	if flagVaultAddr != "" {
+		addr = flagVaultAddr
+	}
+
+	client, err := vault.NewClient(addr, cfg.Vault.BasePath)
 	if err != nil {
 		return nil, fmt.Errorf("creating vault client: %w", err)
 	}
 
-	switch cfg.Vault.AuthMethod {
+	authMethod := cfg.Vault.AuthMethod
+	if flagAuth != "" {
+		authMethod = flagAuth
+	}
+
+	switch authMethod {
 	case "oidc":
 		if err := vault.OIDCAuth(client, cfg.Vault.AuthRole); err != nil {
 			return nil, fmt.Errorf("OIDC authentication: %w", err)
 		}
 	case "approle":
-		roleID := os.Getenv("VX_ROLE_ID")
-		secretID := os.Getenv("VX_SECRET_ID")
+		roleID := flagRoleID
+		if roleID == "" {
+			roleID = os.Getenv("VX_ROLE_ID")
+		}
+		secretID := flagSecretID
+		if secretID == "" {
+			secretID = os.Getenv("VX_SECRET_ID")
+		}
+		if roleID == "" || secretID == "" {
+			return nil, fmt.Errorf("AppRole auth requires --role-id and --secret-id (or VX_ROLE_ID/VX_SECRET_ID env vars)")
+		}
 		if err := vault.AppRoleAuth(client, roleID, secretID); err != nil {
 			return nil, fmt.Errorf("AppRole authentication: %w", err)
 		}
 	default:
-		return nil, fmt.Errorf("unsupported auth method: %s", cfg.Vault.AuthMethod)
+		return nil, fmt.Errorf("unsupported auth method: %s", authMethod)
 	}
 
 	if err := token.WriteToken(client.Token()); err != nil {
@@ -213,8 +237,10 @@ func authenticateNew(cfg *config.RootConfig) (*vault.Client, error) {
 }
 
 // resolveSecrets uses the resolver to fetch all secrets from Vault concurrently.
+// The basePath is NOT passed to the resolver because ReadKV already handles it
+// via the Vault client's own basePath (avoiding double-prefixing).
 func resolveSecrets(client *vault.Client, merged *config.MergedConfig) (map[string]string, error) {
-	r := resolver.New(client, merged.Vault.BasePath)
+	r := resolver.New(client, "")
 
 	secrets, err := r.Resolve(merged.Secrets, merged.Environment)
 	if err != nil {
