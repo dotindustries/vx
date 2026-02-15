@@ -43,6 +43,18 @@ changelog:
       - "^test:"
       - "^chore:"
 
+brews:
+  - repository:
+      owner: dotindustries
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/dotindustries/vx"
+    description: "Vault-backed secret manager for monorepos"
+    license: MIT
+    install: |
+      bin.install "vx"
+
 dockers:
   - image_templates:
       - "ghcr.io/dotindustries/vx:{{ .Version }}-amd64"
