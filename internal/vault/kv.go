@@ -64,6 +64,71 @@ func extractKV2Data(responseData map[string]interface{}, kvPath string) (map[str
 	return result, nil
 }
 
+// VaultEntry represents a key or directory in the Vault KV tree.
+type VaultEntry struct {
+	Name  string // e.g. "database" or "auth/"
+	IsDir bool   // trailing "/" in Vault LIST response indicates a directory
+}
+
+// ListKeys lists keys and directories at a KV v2 metadata path. This uses the
+// Vault LIST HTTP method on {basePath}/metadata/{kvPath}. Keys ending with "/"
+// are directories; others are leaf secrets.
+//
+// Requires the "list" capability on the metadata path. Returns an empty slice
+// when the path does not exist.
+func (c *Client) ListKeys(kvPath string) ([]VaultEntry, error) {
+	fullPath := buildKV2MetadataPath(c.basePath, kvPath)
+
+	secret, err := c.inner.Logical().List(fullPath)
+	if err != nil {
+		if isPermissionDenied(err) {
+			return nil, fmt.Errorf("listing KV path %q: permission denied: %w", kvPath, err)
+		}
+		return nil, fmt.Errorf("listing KV path %q: %w", kvPath, err)
+	}
+
+	if secret == nil || secret.Data == nil {
+		return []VaultEntry{}, nil
+	}
+
+	return parseListKeys(secret.Data, kvPath)
+}
+
+// buildKV2MetadataPath constructs the KV v2 metadata path for LIST operations.
+func buildKV2MetadataPath(basePath string, kvPath string) string {
+	return path.Join(basePath, "metadata", kvPath)
+}
+
+// parseListKeys extracts VaultEntry items from the LIST response data.
+// The Vault KV v2 LIST response returns keys in Data["keys"] as a []interface{}.
+func parseListKeys(data map[string]interface{}, kvPath string) ([]VaultEntry, error) {
+	keysRaw, ok := data["keys"]
+	if !ok {
+		return []VaultEntry{}, nil
+	}
+
+	keysList, ok := keysRaw.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("listing KV path %q: unexpected keys format", kvPath)
+	}
+
+	entries := make([]VaultEntry, 0, len(keysList))
+	for _, k := range keysList {
+		name, ok := k.(string)
+		if !ok {
+			continue
+		}
+
+		isDir := len(name) > 0 && name[len(name)-1] == '/'
+		entries = append(entries, VaultEntry{
+			Name:  name,
+			IsDir: isDir,
+		})
+	}
+
+	return entries, nil
+}
+
 // isPermissionDenied checks whether a Vault API error is a 403 permission denied.
 func isPermissionDenied(err error) bool {
 	var respErr *vaultapi.ResponseError
