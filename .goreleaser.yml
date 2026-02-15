@@ -1,0 +1,72 @@
+project_name: vx
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - id: vx
+    main: .
+    binary: vx
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X go.dot.industries/vx/cmd.version={{.Version}}
+      - -X go.dot.industries/vx/cmd.commit={{.ShortCommit}}
+      - -X go.dot.industries/vx/cmd.date={{.Date}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/dotindustries/vx:{{ .Version }}-amd64"
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/amd64"
+    goarch: amd64
+    dockerfile: Dockerfile.release
+
+  - image_templates:
+      - "ghcr.io/dotindustries/vx:{{ .Version }}-arm64"
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+    goarch: arm64
+    dockerfile: Dockerfile.release
+
+docker_manifests:
+  - name_template: "ghcr.io/dotindustries/vx:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/dotindustries/vx:{{ .Version }}-amd64"
+      - "ghcr.io/dotindustries/vx:{{ .Version }}-arm64"
+
+  - name_template: "ghcr.io/dotindustries/vx:latest"
+    image_templates:
+      - "ghcr.io/dotindustries/vx:{{ .Version }}-amd64"
+      - "ghcr.io/dotindustries/vx:{{ .Version }}-arm64"

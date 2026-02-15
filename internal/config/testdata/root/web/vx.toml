@@ -1,0 +1,8 @@
+[secrets]
+NEXT_PUBLIC_API = "${env}/web/api_url"
+
+[defaults]
+PORT = "3000"
+
+[defaults.production]
+PORT = "8080"

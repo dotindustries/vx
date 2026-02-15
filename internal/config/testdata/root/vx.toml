@@ -1,0 +1,28 @@
+workspaces = [
+  "web/vx.toml",
+  "packages/api/vx.toml",
+]
+
+[vault]
+address = "https://vault.example.com"
+auth_method = "oidc"
+auth_role = "admin"
+base_path = "secret"
+
+[environments]
+default = "dev"
+available = ["dev", "staging", "production"]
+
+[secrets]
+DATABASE_URL = "${env}/database/url"
+OPENAI_API_KEY = "shared/openai/api_key"
+
+[defaults]
+NODE_ENV = "development"
+APP_URL = "http://localhost:3000"
+
+[defaults.staging]
+NODE_ENV = "production"
+
+[defaults.production]
+NODE_ENV = "production"

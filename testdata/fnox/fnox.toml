@@ -1,0 +1,38 @@
+default_provider = "vault-dev"
+
+import = ["./web/fnox.toml", "./packages/api/fnox.toml"]
+
+[providers.vault-dev]
+type = "vault"
+address = "https://vault.example.com"
+path = "secret/dev"
+
+[providers.vault-staging]
+type = "vault"
+address = "https://vault.example.com"
+path = "secret/staging"
+
+[providers.vault-dev-integrations]
+type = "vault"
+address = "https://vault.example.com"
+path = "secret/dev/integrations"
+
+[providers.vault-shared]
+type = "vault"
+address = "https://vault.example.com"
+path = "secret/shared"
+
+[secrets]
+DATABASE_URL = { provider = "vault-dev", value = "database/url" }
+DATABASE_AUTH_TOKEN = { provider = "vault-dev", value = "database/auth_token" }
+OPENAI_API_KEY = { provider = "vault-shared", value = "openai/api_key" }
+NODE_ENV = { default = "development" }
+APP_URL = { default = "http://localhost:3000" }
+
+[profiles.staging.secrets]
+DATABASE_URL = { provider = "vault-staging", value = "database/url" }
+NODE_ENV = { default = "production" }
+
+[profiles.production.secrets]
+DATABASE_URL = { provider = "vault-production", value = "database/url" }
+NODE_ENV = { default = "production" }

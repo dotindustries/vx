@@ -1,0 +1,8 @@
+[vault]
+address = "https://vault.example.com"
+auth_method = "token"
+base_path = "secret"
+
+[environments]
+default = "dev"
+available = ["dev"]

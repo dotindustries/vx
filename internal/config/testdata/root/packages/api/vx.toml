@@ -1,0 +1,5 @@
+[secrets]
+TURSO_PLATFORM_TOKEN = "${env}/database/platform_token"
+
+[defaults]
+SOME_KEY = "value"

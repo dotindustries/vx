@@ -1,0 +1,10 @@
+[secrets]
+TURSO_PLATFORM_TOKEN = "${env}/database/platform_token"
+REDIS_URL = "${env}/cache/redis_url"
+
+[defaults]
+SOME_KEY = "value"
+LOG_LEVEL = "debug"
+
+[defaults.production]
+LOG_LEVEL = "error"
