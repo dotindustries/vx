@@ -7,7 +7,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.18.0
 )
 
 require (
@@ -29,9 +29,9 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
-	golang.org/x/crypto v0.40.0 // indirect
-	golang.org/x/net v0.42.0 // indirect
-	golang.org/x/sys v0.34.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
 )
