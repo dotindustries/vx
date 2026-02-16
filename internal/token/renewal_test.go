@@ -17,7 +17,8 @@ func TestRenewOnce_NoRenewalNeeded(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		resp := tokenLookupResponse{}
-		resp.Data.TTL = 7200
+		resp.Data.TTL = 50000        // above 50% of creation_ttl
+		resp.Data.CreationTTL = 86400 // 24h token
 		resp.Data.Renewable = true
 		json.NewEncoder(w).Encode(resp)
 	}))
@@ -50,6 +51,7 @@ func TestRenewOnce_RenewsLowTTL(t *testing.T) {
 		case "/v1/auth/token/lookup-self":
 			resp := tokenLookupResponse{}
 			resp.Data.TTL = 300
+			resp.Data.CreationTTL = 86400
 			resp.Data.Renewable = true
 			json.NewEncoder(w).Encode(resp)
 		case "/v1/auth/token/renew-self":
@@ -146,7 +148,8 @@ func TestRenewOnce_VaultTokenHeader(t *testing.T) {
 			t.Errorf("X-Vault-Token = %q, want %q", got, "s.header-check")
 		}
 		resp := tokenLookupResponse{}
-		resp.Data.TTL = 7200
+		resp.Data.TTL = 50000
+		resp.Data.CreationTTL = 86400
 		resp.Data.Renewable = true
 		json.NewEncoder(w).Encode(resp)
 	}))
@@ -225,23 +228,34 @@ func TestNeedsReauth_ValidToken(t *testing.T) {
 
 func TestNeedsRenewal(t *testing.T) {
 	tests := []struct {
-		name string
-		ttl  int
-		want bool
+		name        string
+		ttl         int
+		creationTTL int
+		want        bool
 	}{
-		{name: "high TTL", ttl: 7200, want: false},
-		{name: "at threshold", ttl: 1800, want: false},
-		{name: "below threshold", ttl: 1799, want: true},
-		{name: "very low TTL", ttl: 60, want: true},
-		{name: "zero TTL", ttl: 0, want: false},
-		{name: "negative TTL", ttl: -1, want: false},
+		// Known creation_ttl (proportional 50% rule)
+		{name: "known: high TTL", ttl: 50000, creationTTL: 86400, want: false},
+		{name: "known: at 50% threshold", ttl: 43200, creationTTL: 86400, want: false},
+		{name: "known: below 50%", ttl: 43199, creationTTL: 86400, want: true},
+		{name: "known: very low TTL", ttl: 60, creationTTL: 86400, want: true},
+		{name: "known: short-lived at threshold", ttl: 1800, creationTTL: 3600, want: false},
+		{name: "known: short-lived below", ttl: 1799, creationTTL: 3600, want: true},
+
+		// Unknown creation_ttl (always renew)
+		{name: "unknown: high TTL", ttl: 7200, creationTTL: 0, want: true},
+		{name: "unknown: low TTL", ttl: 60, creationTTL: 0, want: true},
+
+		// Edge cases
+		{name: "zero TTL", ttl: 0, creationTTL: 86400, want: false},
+		{name: "negative TTL", ttl: -1, creationTTL: 86400, want: false},
+		{name: "zero TTL unknown", ttl: 0, creationTTL: 0, want: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := needsRenewal(tt.ttl)
+			got := needsRenewal(tt.ttl, tt.creationTTL)
 			if got != tt.want {
-				t.Errorf("needsRenewal(%d) = %v, want %v", tt.ttl, got, tt.want)
+				t.Errorf("needsRenewal(%d, %d) = %v, want %v", tt.ttl, tt.creationTTL, got, tt.want)
 			}
 		})
 	}

@@ -13,7 +13,7 @@ import (
 )
 
 func TestDaemonStartStop(t *testing.T) {
-	srv := newStubVaultServer(t, 7200, true)
+	srv := newStubVaultServer(t, 7200, 86400, true)
 	defer srv.Close()
 
 	dir := t.TempDir()
@@ -93,7 +93,7 @@ func TestDaemonStatus_NotRunning(t *testing.T) {
 }
 
 func TestDaemonStatus_Running(t *testing.T) {
-	srv := newStubVaultServer(t, 7200, true)
+	srv := newStubVaultServer(t, 7200, 86400, true)
 	defer srv.Close()
 
 	dir := t.TempDir()
@@ -143,7 +143,7 @@ func TestDaemonDoubleStart(t *testing.T) {
 	// Write our own PID to simulate an already-running daemon.
 	writeTokenTo(pidPath, strconv.Itoa(os.Getpid()))
 
-	srv := newStubVaultServer(t, 7200, true)
+	srv := newStubVaultServer(t, 7200, 86400, true)
 	defer srv.Close()
 
 	renewer := NewTokenRenewer(srv.URL,
@@ -229,7 +229,7 @@ func TestRemovePIDFile_Missing(t *testing.T) {
 }
 
 func TestDaemonContextCancellation(t *testing.T) {
-	srv := newStubVaultServer(t, 7200, true)
+	srv := newStubVaultServer(t, 7200, 86400, true)
 	defer srv.Close()
 
 	dir := t.TempDir()
@@ -263,7 +263,7 @@ func TestDaemonContextCancellation(t *testing.T) {
 
 // newStubVaultServer creates a test HTTP server that responds to Vault
 // lookup-self and renew-self endpoints.
-func newStubVaultServer(t *testing.T, ttl int, renewable bool) *httptest.Server {
+func newStubVaultServer(t *testing.T, ttl int, creationTTL int, renewable bool) *httptest.Server {
 	t.Helper()
 
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -271,6 +271,7 @@ func newStubVaultServer(t *testing.T, ttl int, renewable bool) *httptest.Server 
 		case "/v1/auth/token/lookup-self":
 			resp := tokenLookupResponse{}
 			resp.Data.TTL = ttl
+			resp.Data.CreationTTL = creationTTL
 			resp.Data.Renewable = renewable
 			json.NewEncoder(w).Encode(resp)
 		case "/v1/auth/token/renew-self":

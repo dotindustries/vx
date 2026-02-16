@@ -64,9 +64,10 @@ func NewTokenRenewer(vaultAddr string, opts ...RenewerOption) *TokenRenewer {
 // auth/token/lookup-self response.
 type tokenLookupResponse struct {
 	Data struct {
-		TTL       int  `json:"ttl"`
-		ExpireTime any  `json:"expire_time"`
-		Renewable bool `json:"renewable"`
+		TTL         int  `json:"ttl"`
+		CreationTTL int  `json:"creation_ttl"`
+		ExpireTime  any  `json:"expire_time"`
+		Renewable   bool `json:"renewable"`
 	} `json:"data"`
 }
 
@@ -96,7 +97,7 @@ func (r *TokenRenewer) RenewOnce(ctx context.Context) error {
 		return nil
 	}
 
-	if !needsRenewal(lookup.Data.TTL) {
+	if !needsRenewal(lookup.Data.TTL, lookup.Data.CreationTTL) {
 		return nil
 	}
 
@@ -131,12 +132,19 @@ func (r *TokenRenewer) NeedsReauth() bool {
 	return lookup.Data.TTL <= 0 && lookup.Data.ExpireTime != nil
 }
 
-// needsRenewal returns true if the TTL is below 50% of a reasonable threshold.
-// Vault tokens typically have their creation_ttl equal to the original max;
-// we use a simple heuristic: renew if TTL < 50% of 2x current TTL
-// (i.e., current TTL is below the midpoint of the original lease).
-func needsRenewal(ttlSeconds int) bool {
-	return ttlSeconds > 0 && ttlSeconds < 1800
+// needsRenewal returns true when the remaining TTL is below the renewal
+// threshold. When creationTTL is known (> 0) the threshold is 50% of the
+// original lease. When creationTTL is unknown (0) we always renew — Vault
+// renewal is idempotent so an extra POST /renew-self per check interval is
+// harmless and avoids missing the window for tokens with unknown lifetimes.
+func needsRenewal(ttlSeconds, creationTTL int) bool {
+	if ttlSeconds <= 0 {
+		return false
+	}
+	if creationTTL > 0 {
+		return ttlSeconds < creationTTL/2
+	}
+	return true // unknown lifetime — always renew to be safe
 }
 
 // lookupToken calls Vault's auth/token/lookup-self endpoint.

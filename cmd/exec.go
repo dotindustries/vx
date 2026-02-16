@@ -170,8 +170,8 @@ func authenticatedClient(cfg *config.RootConfig, env string) (*vault.Client, err
 
 	tok, err := token.ReadToken()
 	if err != nil {
-		log.Debug().Msg("no cached token, authenticating")
-		return authenticateNew(cfg)
+		log.Warn().Msg("no cached Vault token — opening browser for authentication...")
+		return authenticateAndStartDaemon(cfg)
 	}
 
 	client, err := vault.NewClientWithToken(addr, cfg.Vault.BasePath, tok)
@@ -180,11 +180,26 @@ func authenticatedClient(cfg *config.RootConfig, env string) (*vault.Client, err
 	}
 
 	if !client.IsAuthenticated() {
-		log.Debug().Msg("cached token expired, re-authenticating")
-		return authenticateNew(cfg)
+		log.Warn().Msg("Vault token expired — opening browser for re-authentication...")
+		return authenticateAndStartDaemon(cfg)
 	}
 
 	log.Debug().Msg("using cached vault token")
+	return client, nil
+}
+
+// authenticateAndStartDaemon performs a fresh authentication and then
+// best-effort starts the renewal daemon so the new token stays alive.
+func authenticateAndStartDaemon(cfg *config.RootConfig) (*vault.Client, error) {
+	client, err := authenticateNew(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if !flagNoDaemon {
+		startDaemonBackground()
+	}
+
 	return client, nil
 }
 
@@ -195,14 +210,17 @@ func authenticateNew(cfg *config.RootConfig) (*vault.Client, error) {
 		addr = flagVaultAddr
 	}
 
-	client, err := vault.NewClient(addr, cfg.Vault.BasePath)
-	if err != nil {
-		return nil, fmt.Errorf("creating vault client: %w", err)
-	}
-
 	authMethod := cfg.Vault.AuthMethod
 	if flagAuth != "" {
 		authMethod = flagAuth
+	}
+
+	// For OIDC, create the client with any existing stale token. Some Vault
+	// servers require a token (even expired) on auth/oidc/auth_url for policy
+	// evaluation. For other auth methods, start unauthenticated.
+	client, err := newClientForAuth(addr, cfg.Vault.BasePath, authMethod)
+	if err != nil {
+		return nil, fmt.Errorf("creating vault client: %w", err)
 	}
 
 	switch authMethod {
@@ -234,6 +252,19 @@ func authenticateNew(cfg *config.RootConfig) (*vault.Client, error) {
 	}
 
 	return client, nil
+}
+
+// newClientForAuth creates a Vault client appropriate for the given auth
+// method. For OIDC, it preserves any existing stale token from ~/.vx/token
+// because some Vault servers require a token for the auth/oidc/auth_url
+// endpoint. For all other methods, it creates a clean unauthenticated client.
+func newClientForAuth(addr string, basePath string, authMethod string) (*vault.Client, error) {
+	if authMethod == "oidc" {
+		if stale, err := token.ReadToken(); err == nil {
+			return vault.NewClientWithToken(addr, basePath, stale)
+		}
+	}
+	return vault.NewClient(addr, basePath)
 }
 
 // resolveSecrets uses the resolver to fetch all secrets from Vault concurrently.

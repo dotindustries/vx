@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/rs/zerolog/log"
@@ -35,7 +34,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		addr = flagVaultAddr
 	}
 
-	client, err := vault.NewClient(addr, cfg.Vault.BasePath)
+	client, err := newClientForAuth(addr, cfg.Vault.BasePath, "oidc")
 	if err != nil {
 		return fmt.Errorf("creating vault client: %w", err)
 	}
@@ -57,20 +56,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	renewer := token.NewTokenRenewer(cfg.Vault.Address)
-	daemon := token.NewDaemon(renewer)
-
-	if daemon.IsRunning() {
-		log.Info().Msg("token daemon already running")
-		return nil
-	}
-
-	if err := daemon.Start(context.Background()); err != nil {
-		log.Warn().Err(err).Msg("failed to start token daemon")
-		return nil
-	}
-
-	log.Info().Msg("token daemon started")
+	startDaemonBackground()
 
 	return nil
 }

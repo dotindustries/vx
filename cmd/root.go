@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"go.dot.industries/vx/internal/config"
+	"go.dot.industries/vx/internal/token"
 )
 
 var (
@@ -91,6 +92,29 @@ func loadConfig() (*config.RootConfig, string, error) {
 	rootDir := filepath.Dir(configPath)
 
 	return cfg, rootDir, nil
+}
+
+// startDaemonBackground spawns the token renewal daemon as a detached
+// background process. Failures are logged as warnings — daemon start is
+// best-effort and must never block the calling command.
+func startDaemonBackground() {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Warn().Err(err).Msg("cannot resolve vx binary for daemon")
+		return
+	}
+
+	pid, err := token.StartDaemonProcess(exe)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to start token daemon")
+		return
+	}
+
+	if pid > 0 {
+		log.Info().Int("pid", pid).Msg("token daemon started in background")
+	} else {
+		log.Debug().Msg("token daemon already running")
+	}
 }
 
 // resolveEnv returns the environment to use, preferring the CLI flag over the

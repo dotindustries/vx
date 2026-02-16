@@ -12,6 +12,7 @@ const (
 	tokenFile  = "token"
 	pidFile    = "daemon.pid"
 	socketFile = "daemon.sock"
+	logFile    = "daemon.log"
 	dirPerms   = 0700
 	filePerms  = 0600
 )
@@ -41,6 +42,11 @@ var PIDPath = func() string {
 // SocketPath returns the path to the daemon Unix socket (~/.vx/daemon.sock).
 var SocketPath = func() string {
 	return filepath.Join(DefaultDir(), socketFile)
+}
+
+// LogPath returns the path to the daemon log file (~/.vx/daemon.log).
+var LogPath = func() string {
+	return filepath.Join(DefaultDir(), logFile)
 }
 
 // ReadToken reads the Vault token from the sink file. Returns an error if the
