@@ -58,15 +58,16 @@ func OIDCAuth(client *Client, role string) error {
 	return nil
 }
 
-// requestAuthURL calls Vault's auth/oidc/auth_url endpoint to get the URL
-// the user must visit to authenticate.
+// requestAuthURL calls Vault's auth/oidc/oidc/auth_url endpoint to get the URL
+// the user must visit to authenticate. The path is mount ("oidc") + plugin
+// route ("oidc/auth_url"), matching the official vault CLI behaviour.
 func requestAuthURL(client *Client, role string, redirectURI string) (string, string, error) {
 	data := map[string]interface{}{
 		"role":         role,
 		"redirect_uri": redirectURI,
 	}
 
-	secret, err := client.inner.Logical().Write("auth/oidc/auth_url", data)
+	secret, err := client.inner.Logical().Write("auth/oidc/oidc/auth_url", data)
 	if err != nil {
 		return "", "", fmt.Errorf("requesting OIDC auth URL: %w", err)
 	}
@@ -132,14 +133,16 @@ func waitForCallback(listener net.Listener) (*oidcCallbackResult, error) {
 }
 
 // exchangeOIDCCode exchanges the authorization code and state for a Vault token.
+// The callback endpoint expects a GET (ReadWithData), not a PUT/POST, matching
+// the official vault CLI behaviour.
 func exchangeOIDCCode(client *Client, code string, state string, clientNonce string) (string, error) {
-	data := map[string]interface{}{
-		"code":         code,
-		"state":        state,
-		"client_nonce": clientNonce,
+	data := map[string][]string{
+		"code":         {code},
+		"state":        {state},
+		"client_nonce": {clientNonce},
 	}
 
-	secret, err := client.inner.Logical().Write("auth/oidc/callback", data)
+	secret, err := client.inner.Logical().ReadWithData("auth/oidc/oidc/callback", data)
 	if err != nil {
 		return "", fmt.Errorf("exchanging OIDC code for token: %w", err)
 	}
