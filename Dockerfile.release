@@ -1,3 +1,6 @@
 FROM scratch
+LABEL org.opencontainers.image.source="https://github.com/dotindustries/vx"
+LABEL org.opencontainers.image.description="Vault-backed secret manager for monorepos"
+LABEL org.opencontainers.image.licenses="MIT"
 COPY vx /vx
 ENTRYPOINT ["/vx"]
