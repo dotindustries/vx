@@ -62,6 +62,28 @@ TURSO_PLATFORM_TOKEN = "${env}/database/platform_token"
 SOME_KEY = "value"
 ```
 
+## Local overrides
+
+`vx exec` and `vx list` apply dotenv overrides on top of Vault secrets and `[defaults]`:
+
+1. `.env.local` next to the root `vx.toml`, loaded automatically when present (keep it gitignored)
+2. each `--env-file <path>`, in the order given (repeatable; later files win)
+
+```bash
+# .env.local
+DATABASE_URL=libsql://my-branch.turso.io
+DATABASE_AUTH_TOKEN=...
+```
+
+Secrets that are overridden are not fetched from Vault. Overridden key names (never values) are logged, and `vx list` marks which keys come from an env file.
+
+Disable auto-loading of `.env.local` with `--no-env-local`, `VX_NO_ENV_LOCAL=1`, or in the root `vx.toml`:
+
+```toml
+[env_file]
+auto_load = false
+```
+
 ## Features
 
 - Workspace-scoped secret loading via `vx.toml`

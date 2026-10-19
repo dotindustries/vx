@@ -17,6 +17,7 @@ import (
 )
 
 func init() {
+	addEnvFileFlags(execCmd)
 	rootCmd.AddCommand(execCmd)
 }
 
@@ -25,7 +26,14 @@ var execCmd = &cobra.Command{
 	Short: "Run a command with secrets injected as environment variables",
 	Long: `Resolves secrets from Vault and executes the given command with them
 injected as environment variables. Secrets are scoped to the detected or
-specified workspace.`,
+specified workspace.
+
+Local overrides are applied last, so they win over Vault secrets and defaults:
+  1. .env.local next to the root vx.toml, when present
+  2. each --env-file, in the order given
+
+Disable auto-loading of .env.local with --no-env-local, VX_NO_ENV_LOCAL=1, or
+[env_file] auto_load = false in the root vx.toml.`,
 	DisableFlagParsing: false,
 	Args:               cobra.MinimumNArgs(1),
 	RunE:               runExec,
@@ -50,28 +58,29 @@ func runExec(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	layers, err := loadEnvFileLayers(cfg, rootDir)
+	if err != nil {
+		return err
+	}
+	overrides, _ := flattenEnvFileLayers(layers)
+
 	vaultClient, err := authenticatedClient(cfg, env)
 	if err != nil {
 		return err
 	}
 
-	secrets, err := resolveSecrets(vaultClient, merged)
+	secrets, err := resolveSecrets(vaultClient, withoutOverriddenSecrets(merged, overrides))
 	if err != nil {
 		return err
 	}
 
-	// Overlay defaults under secrets (secrets take precedence).
-	envVars := make(map[string]string, len(merged.Defaults)+len(secrets))
-	for k, v := range merged.Defaults {
-		envVars[k] = v
-	}
-	for k, v := range secrets {
-		envVars[k] = v
-	}
+	envVars := buildEnv(merged.Defaults, secrets, overrides)
 
+	logEnvFileLayers(layers)
 	log.Info().
 		Int("secrets", len(secrets)).
 		Int("defaults", len(merged.Defaults)).
+		Int("overrides", len(overrides)).
 		Str("workspace", workspace).
 		Msg("injecting environment")
 
