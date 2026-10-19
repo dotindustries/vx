@@ -7,6 +7,18 @@ type RootConfig struct {
 	Workspaces   []string          `toml:"workspaces"`
 	Secrets      map[string]string `toml:"secrets"`
 	Defaults     map[string]any    `toml:"defaults"`
+	EnvFile      EnvFileConfig     `toml:"env_file"`
+}
+
+// EnvFileConfig controls loading of local dotenv override files.
+type EnvFileConfig struct {
+	AutoLoad *bool `toml:"auto_load"`
+}
+
+// AutoLoadEnabled reports whether .env.local next to the root vx.toml should
+// be loaded automatically. It is enabled unless explicitly turned off.
+func (c EnvFileConfig) AutoLoadEnabled() bool {
+	return c.AutoLoad == nil || *c.AutoLoad
 }
 
 // VaultConfig holds Vault server connection settings.

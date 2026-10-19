@@ -134,3 +134,31 @@ func TestFindRootConfig_InCurrentDir(t *testing.T) {
 		t.Errorf("FindRootConfig() = %q, want %q", found, expected)
 	}
 }
+
+func TestLoadRootConfig_EnvFileAutoLoad(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{name: "unset defaults to enabled", content: "", want: true},
+		{name: "explicitly enabled", content: "[env_file]\nauto_load = true\n", want: true},
+		{name: "explicitly disabled", content: "[env_file]\nauto_load = false\n", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "vx.toml")
+			writeTestFile(t, path, tt.content)
+
+			cfg, err := LoadRootConfig(path)
+			if err != nil {
+				t.Fatalf("LoadRootConfig() error = %v", err)
+			}
+
+			if got := cfg.EnvFile.AutoLoadEnabled(); got != tt.want {
+				t.Errorf("EnvFile.AutoLoadEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
